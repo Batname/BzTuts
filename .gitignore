@@ -1,0 +1,7 @@
+x64/*
+BzTuts/x64/*
+BzTuts/Debug/*
+*.VC.db
+*.VC.VC.opendb
+.vs/*
+*.exe
