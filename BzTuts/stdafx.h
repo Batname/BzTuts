@@ -1,3 +1,4 @@
+
 #pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -98,6 +99,9 @@ D3D12_VIEWPORT viewport; // area that output from rasterizer will be stretched t
 D3D12_RECT scissorRect; // the area to draw in. pixels outside that area will not be drawn onto
 
 ID3D12Resource* vertexBuffer; // a default buffer in GPU memory that we will load vertex data for our triangle into
+ID3D12Resource* indexBuffer; // a default buffer in GPU memory that we will load index data for our triangle into
 
 D3D12_VERTEX_BUFFER_VIEW vertexBufferView; // a structure containing a pointer to the vertex data in gpu memory
 										   // the total size of the buffer, and the size of each element (vertex)
+
+D3D12_INDEX_BUFFER_VIEW indexBufferView; // a structure holding information about the index buffer
