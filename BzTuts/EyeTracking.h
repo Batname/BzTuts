@@ -167,7 +167,7 @@ public:
 			// last coordinate
 			if (EyeString.length() == i)
 			{
-				PositionVector.x = std::stof(TempString);
+				PositionVector.z = std::stof(TempString);
 				break;
 			}
 			TempString += *(EyeString.c_str() + i);

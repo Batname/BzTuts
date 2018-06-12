@@ -682,14 +682,14 @@ bool InitD3D()
 
 void Update()
 {
-	// create translation matrix for cube 1 from cube 1's position vector
-	XMFLOAT4 cube1Position_local = XMFLOAT4(-1.0f, 0.0f, 0.0f, 0.0f); // set cube 1's position
-	XMMATRIX translationMat = XMMatrixTranslationFromVector(XMLoadFloat4(&cube1Position_local));
-	XMMATRIX scaleMat = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+	XMFLOAT3 MiddleEye = eyeTracking.MiddleEye;
 
-	// create cube1's world matrix by first rotating the cube, then positioning the rotated cube
+	XMFLOAT4 translation = XMFLOAT4(pixelsize_cm * FPGAScreenWidth / ScreenWidth / DebugSquareScalar * MiddleEye.x / 2.f, 
+		pixelsize_cm * FPGAScreenHeight / ScreenHeight / DebugSquareScalar * MiddleEye.y / 2.f, 0.0f, 0.0f);
+	XMMATRIX translationMat = XMMatrixTranslationFromVector(XMLoadFloat4(&translation));
+	XMMATRIX scaleMat = XMMatrixScaling(DebugSquareScalar, DebugSquareScalar, 1.f);
+
 	XMMATRIX worldMat = translationMat * scaleMat;
-
 	XMMATRIX wvpMat = worldMat * XMMatrixIdentity();
 	XMMATRIX transposed = XMMatrixTranspose(wvpMat); // must transpose wvp matrix for the gpu
 
@@ -746,7 +746,7 @@ void UpdatePipeline()
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
 	// Clear the render target by using the ClearRenderTargetView command
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+	const float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
 	// -- draw triangle -- //
