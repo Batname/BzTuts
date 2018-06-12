@@ -1,3 +1,4 @@
+#include "EyeTracking.h"
 #include "stdafx.h"
 
 using namespace DirectX; // we will be using the directxmath library
@@ -354,8 +355,27 @@ bool InitD3D()
 
 	// create root signature
 
+	// create a root descriptor, which explains where to find the data for this root parameter
+	D3D12_ROOT_DESCRIPTOR rootCBVDescriptor;
+	rootCBVDescriptor.RegisterSpace = 0;
+	rootCBVDescriptor.ShaderRegister = 0;
+
+	// create a root parameter and fill it out
+	D3D12_ROOT_PARAMETER  rootParameters[1]; // only one parameter right now
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // this is a constant buffer view root descriptor
+	rootParameters[0].Descriptor = rootCBVDescriptor; // this is the root descriptor for this root parameter
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // our pixel shader will be the only shader accessing this parameter for now
+
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init(_countof(rootParameters), // we have 1 root parameter
+		rootParameters, // a pointer to the beginning of our root parameters array
+		0,
+		nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | // we can deny shader stages here for better performance
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS);
 
 	ID3DBlob* signature;
 	hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, nullptr);
@@ -575,6 +595,45 @@ bool InitD3D()
 	// transition the vertex buffer data from copy destination state to vertex buffer state
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(indexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
 
+	// create the constant buffer resource heap
+	// We will update the constant buffer one or more times per frame, so we will use only an upload heap
+	// unlike previously we used an upload heap to upload the vertex and index data, and then copied over
+	// to a default heap. If you plan to use a resource for more than a couple frames, it is usually more
+	// efficient to copy to a default heap where it stays on the gpu. In this case, our constant buffer
+	// will be modified and uploaded at least once per frame, so we only use an upload heap
+
+	// first we will create a resource heap (upload heap) for each frame for the cubes constant buffers
+	// As you can see, we are allocating 64KB for each resource we create. Buffer resource heaps must be
+	// an alignment of 64KB. We are creating 3 resources, one for each frame. Each constant buffer is 
+	// only a 4x4 matrix of floats in this tutorial. So with a float being 4 bytes, we have 
+	// 16 floats in one constant buffer, and we will store 2 constant buffers in each
+	// heap, one for each cube, thats only 64x2 bits, or 128 bits we are using for each
+	// resource, and each resource must be at least 64KB (65536 bits)
+	for (int i = 0; i < frameBufferCount; ++i)
+	{
+		// create resource for cube 1
+		hr = device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // this heap will be used to upload the constant buffer data
+			D3D12_HEAP_FLAG_NONE, // no flags
+			&CD3DX12_RESOURCE_DESC::Buffer(1024 * 64), // size of the resource heap. Must be a multiple of 64KB for single-textures and constant buffers
+			D3D12_RESOURCE_STATE_GENERIC_READ, // will be data that is read from so we keep it in the generic read state
+			nullptr, // we do not have use an optimized clear value for constant buffers
+			IID_PPV_ARGS(&constantBufferUploadHeaps[i]));
+		constantBufferUploadHeaps[i]->SetName(L"Constant Buffer Upload Resource Heap");
+
+		ZeroMemory(&cbPerObject, sizeof(cbPerObject));
+
+		CD3DX12_RANGE readRange(0, 0);    // We do not intend to read from this resource on the CPU. (so end is less than or equal to begin)
+
+										  // map the resource heap to get a gpu virtual address to the beginning of the heap
+		hr = constantBufferUploadHeaps[i]->Map(0, &readRange, reinterpret_cast<void**>(&cbvGPUAddress[i]));
+
+		// Because of the constant read alignment requirements, constant buffer views must be 256 bit aligned. Our buffers are smaller than 256 bits,
+		// so we need to add spacing between the two buffers, so that the second buffer starts at 256 bits from the beginning of the resource heap.
+		memcpy(cbvGPUAddress[i], &cbPerObject, sizeof(cbPerObject)); // cube1's constant buffer data
+		memcpy(cbvGPUAddress[i] + ConstantBufferPerObjectAlignedSize, &cbPerObject, sizeof(cbPerObject)); // cube2's constant buffer data
+	}
+
 	// Now we execute the command list to upload the initial assets (triangle data)
 	commandList->Close();
 	ID3D12CommandList* ppCommandLists[] = { commandList };
@@ -617,7 +676,11 @@ bool InitD3D()
 
 void Update()
 {
-	// update app logic, such as moving the camera or figuring out what objects are in view
+	XMMATRIX worldMat = XMMatrixIdentity();
+	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
+
+	// copy our ConstantBuffer instance to the mapped constant buffer resource
+	memcpy(cbvGPUAddress[frameIndex], &cbPerObject, sizeof(cbPerObject));
 }
 
 void UpdatePipeline()
@@ -666,14 +729,42 @@ void UpdatePipeline()
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
-	// draw triangle
+	// -- draw triangle -- //
 	commandList->SetGraphicsRootSignature(rootSignature); // set the root signature
-	commandList->RSSetViewports(1, &viewport); // set the viewports
 	commandList->RSSetScissorRects(1, &scissorRect); // set the scissor rects
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // set the primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // set the vertex buffer (using the vertex buffer view)
 	commandList->IASetIndexBuffer(&indexBufferView);
-	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
+
+	commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress());
+
+	// Draw left eye
+	{
+		//viewport.TopLeftX = 0;
+		//viewport.TopLeftY = 0;
+		//viewport.Width = Width / 2.f;
+		//viewport.Height = Height;
+		//viewport.MinDepth = 0.0f;
+		//viewport.MaxDepth = 1.0f;
+
+
+		commandList->RSSetViewports(1, &viewport); // set the viewports
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
+	}
+
+	// Draw right eye
+	//{
+	//	viewport.TopLeftX = Width / 2.f;
+	//	viewport.TopLeftY = 0;
+	//	viewport.Width = Width / 2.f;
+	//	viewport.Height = Height;
+	//	viewport.MinDepth = 0.0f;
+	//	viewport.MaxDepth = 1.0f;
+
+
+	//	commandList->RSSetViewports(1, &viewport); // set the viewports
+	//	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
+	//}
 
 													  // transition the "frameIndex" render target from the render target state to the present state. If the debug layer is enabled, you will receive a
 													  // warning if present is called on the render target when it's not in the present state
@@ -746,6 +837,11 @@ void Cleanup()
 	SAFE_RELEASE(rootSignature);
 	SAFE_RELEASE(vertexBuffer);
 	SAFE_RELEASE(indexBuffer);
+
+	for (int i = 0; i < frameBufferCount; ++i)
+	{
+		SAFE_RELEASE(constantBufferUploadHeaps[i]);
+	};
 }
 
 void WaitForPreviousFrame()
