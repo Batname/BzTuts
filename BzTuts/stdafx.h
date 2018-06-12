@@ -11,6 +11,9 @@
 #include <DirectXMath.h>
 #include "d3dx12.h"
 #include <string>
+#include <mmsystem.h>
+
+#pragma comment(lib, "winmm.lib")
 
 // this will only call release if an object exists (prevents exceptions calling release on non existant objects)
 #define SAFE_RELEASE(p) { if ( (p) ) { (p)->Release(); (p) = 0; } }
@@ -37,6 +40,10 @@ float pixelsize_cm = 0.0186f;
 float DebugSquareScalar = 0.01f;
 float FPGAScreenWidth = 7680.f;
 float FPGAScreenHeight = 3840.f;
+
+// frame limit
+DWORD dwFPSLimit = 0; // Or however many frames per second
+DWORD dwCurrentTime = timeGetTime();
 
 
 // is window full screen?

@@ -798,6 +798,17 @@ void UpdatePipeline()
 
 void Render()
 {
+	if (dwFPSLimit > 0)
+	{
+		static DWORD dwLastFrameTime = 0;
+		dwCurrentTime = timeGetTime();
+		if ((dwCurrentTime - dwLastFrameTime) < (1000 / dwFPSLimit)) // 1000 miliseconds in a second.
+		{
+			return;
+		}
+		dwLastFrameTime = dwCurrentTime;
+	}
+
 	HRESULT hr;
 
 	UpdatePipeline(); // update the pipeline by sending commands to the commandqueue
