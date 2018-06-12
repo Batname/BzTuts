@@ -676,11 +676,17 @@ bool InitD3D()
 
 void Update()
 {
-	XMMATRIX worldMat = XMMatrixIdentity();
-	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
+	XMMATRIX Scale = XMMatrixScaling(0.1f, 0.1f, 1.f);
+	XMMATRIX worldMat = XMMatrixIdentity() * Scale;
 
+	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
 	// copy our ConstantBuffer instance to the mapped constant buffer resource
 	memcpy(cbvGPUAddress[frameIndex], &cbPerObject, sizeof(cbPerObject));
+
+
+	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
+	// copy our ConstantBuffer instance to the mapped constant buffer resource
+	memcpy(cbvGPUAddress[frameIndex] + ConstantBufferPerObjectAlignedSize, &cbPerObject, sizeof(cbPerObject));
 }
 
 void UpdatePipeline()
@@ -736,35 +742,34 @@ void UpdatePipeline()
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // set the vertex buffer (using the vertex buffer view)
 	commandList->IASetIndexBuffer(&indexBufferView);
 
-	commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress());
-
 	// Draw left eye
 	{
-		//viewport.TopLeftX = 0;
-		//viewport.TopLeftY = 0;
-		//viewport.Width = Width / 2.f;
-		//viewport.Height = Height;
-		//viewport.MinDepth = 0.0f;
-		//viewport.MaxDepth = 1.0f;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = Width / 2.f;
+		viewport.Height = Height;
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
 
-
+		commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress());
 		commandList->RSSetViewports(1, &viewport); // set the viewports
 		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
 	}
 
 	// Draw right eye
-	//{
-	//	viewport.TopLeftX = Width / 2.f;
-	//	viewport.TopLeftY = 0;
-	//	viewport.Width = Width / 2.f;
-	//	viewport.Height = Height;
-	//	viewport.MinDepth = 0.0f;
-	//	viewport.MaxDepth = 1.0f;
+	{
+		viewport.TopLeftX = Width / 2.f;
+		viewport.TopLeftY = 0;
+		viewport.Width = Width / 2.f;
+		viewport.Height = Height;
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
 
 
-	//	commandList->RSSetViewports(1, &viewport); // set the viewports
-	//	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
-	//}
+		commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress() + ConstantBufferPerObjectAlignedSize);
+		commandList->RSSetViewports(1, &viewport); // set the viewports
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw 2 triangles (draw 1 instance of 2 triangles)
+	}
 
 													  // transition the "frameIndex" render target from the render target state to the present state. If the debug layer is enabled, you will receive a
 													  // warning if present is called on the render target when it's not in the present state
