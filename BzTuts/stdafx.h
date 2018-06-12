@@ -26,9 +26,18 @@ LPCTSTR WindowName = L"BzTutsApp";
 // title of the window
 LPCTSTR WindowTitle = L"Bz Window";
 
-// width and height of the window
-int Width = 800;
-int Height = 600;
+// Screen settings
+float ScreenWidth = 5120.f;
+float ScreenHeight = 1440.f;
+
+float ScreenSizeInch = 65.f;
+float ScreenHeight_cm_Scale = 1.f;
+
+float pixelsize_cm = 0.0186f;
+float DebugSquareScalar = 0.01f;
+float FPGAScreenWidth = 7680.f;
+float FPGAScreenHeight = 3840.f;
+
 
 // is window full screen?
 bool FullScreen = false;

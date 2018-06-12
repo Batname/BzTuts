@@ -3,6 +3,9 @@
 
 using namespace DirectX; // we will be using the directxmath library
 
+ // Eye tracking
+EyeTracking eyeTracking;
+
 struct Vertex {
 	Vertex(float x, float y, float z, float r, float g, float b, float a) : pos(x, y, z), color(r, g, b, z) {}
 	XMFLOAT3 pos;
@@ -15,6 +18,9 @@ int WINAPI WinMain(HINSTANCE hInstance,    //Main windows function
 	int nShowCmd)
 
 {
+	// init eye tracking server
+	eyeTracking.ListenCamerasUDP();
+
 	// create the window
 	if (!InitializeWindow(hInstance, nShowCmd, FullScreen))
 	{
@@ -60,8 +66,8 @@ bool InitializeWindow(HINSTANCE hInstance,
 		MONITORINFO mi = { sizeof(mi) };
 		GetMonitorInfo(hmon, &mi);
 
-		Width = mi.rcMonitor.right - mi.rcMonitor.left;
-		Height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+		ScreenWidth = mi.rcMonitor.right - mi.rcMonitor.left;
+		ScreenHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
 	}
 
 	WNDCLASSEX wc;
@@ -91,7 +97,7 @@ bool InitializeWindow(HINSTANCE hInstance,
 		WindowTitle,
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		Width, Height,
+		ScreenWidth, ScreenHeight,
 		NULL,
 		NULL,
 		hInstance,
@@ -240,8 +246,8 @@ bool InitD3D()
 	// -- Create the Swap Chain (double/tripple buffering) -- //
 
 	DXGI_MODE_DESC backBufferDesc = {}; // this is to describe our display mode
-	backBufferDesc.Width = Width; // buffer width
-	backBufferDesc.Height = Height; // buffer height
+	backBufferDesc.Width = ScreenWidth; // buffer width
+	backBufferDesc.Height = ScreenHeight; // buffer height
 	backBufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // format of the buffer (rgba 32 bits, 8 bits for each chanel)
 
 														// describe our multi-sampling. We are not multi-sampling, so we set the count to 1 (we need at least one sample of course)
@@ -660,16 +666,16 @@ bool InitD3D()
 	// Fill out the Viewport
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
-	viewport.Width = Width;
-	viewport.Height = Height;
+	viewport.Width = ScreenWidth;
+	viewport.Height = ScreenHeight;
 	viewport.MinDepth = 0.0f;
 	viewport.MaxDepth = 1.0f;
 
 	// Fill out a scissor rect
 	scissorRect.left = 0;
 	scissorRect.top = 0;
-	scissorRect.right = Width;
-	scissorRect.bottom = Height;
+	scissorRect.right = ScreenWidth;
+	scissorRect.bottom = ScreenHeight;
 
 	return true;
 }
@@ -754,8 +760,8 @@ void UpdatePipeline()
 	{
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
-		viewport.Width = Width / 2.f;
-		viewport.Height = Height;
+		viewport.Width = ScreenWidth / 2.f;
+		viewport.Height = ScreenHeight;
 		viewport.MinDepth = 0.0f;
 		viewport.MaxDepth = 1.0f;
 
@@ -766,10 +772,10 @@ void UpdatePipeline()
 
 	// Draw right eye
 	{
-		viewport.TopLeftX = Width / 2.f;
+		viewport.TopLeftX = ScreenWidth / 2.f;
 		viewport.TopLeftY = 0;
-		viewport.Width = Width / 2.f;
-		viewport.Height = Height;
+		viewport.Width = ScreenWidth / 2.f;
+		viewport.Height = ScreenHeight;
 		viewport.MinDepth = 0.0f;
 		viewport.MaxDepth = 1.0f;
 
@@ -855,6 +861,9 @@ void Cleanup()
 	{
 		SAFE_RELEASE(constantBufferUploadHeaps[i]);
 	};
+
+	// stop eye tracking listener
+	eyeTracking.CloseCamerasUDP();
 }
 
 void WaitForPreviousFrame()

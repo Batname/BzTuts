@@ -137,7 +137,7 @@ public:
 	XMFLOAT3 ConvertCoordToVector(const std::string& EyeString)
 	{
 		std::string TempString = "";
-		XMFLOAT3 PositionVector;
+		XMFLOAT3 PositionVector(0.f, 0.f, 0.f);
 
 		int i;
 		bool IsXCoord = true;
