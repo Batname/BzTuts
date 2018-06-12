@@ -676,15 +676,23 @@ bool InitD3D()
 
 void Update()
 {
-	XMMATRIX Scale = XMMatrixScaling(0.1f, 0.1f, 1.f);
-	XMMATRIX worldMat = XMMatrixIdentity() * Scale;
+	// create translation matrix for cube 1 from cube 1's position vector
+	XMFLOAT4 cube1Position_local = XMFLOAT4(-1.0f, 0.0f, 0.0f, 0.0f); // set cube 1's position
+	XMMATRIX translationMat = XMMatrixTranslationFromVector(XMLoadFloat4(&cube1Position_local));
+	XMMATRIX scaleMat = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 
-	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
+	// create cube1's world matrix by first rotating the cube, then positioning the rotated cube
+	XMMATRIX worldMat = translationMat * scaleMat;
+
+	XMMATRIX wvpMat = worldMat * XMMatrixIdentity();
+	XMMATRIX transposed = XMMatrixTranspose(wvpMat); // must transpose wvp matrix for the gpu
+
+	XMStoreFloat4x4(&cbPerObject.wvpMat, transposed); // store transposed wvp matrix in constant buffer
 	// copy our ConstantBuffer instance to the mapped constant buffer resource
 	memcpy(cbvGPUAddress[frameIndex], &cbPerObject, sizeof(cbPerObject));
 
 
-	XMStoreFloat4x4(&cbPerObject.wvpMat, worldMat); // store transposed wvp matrix in constant buffer
+	XMStoreFloat4x4(&cbPerObject.wvpMat, transposed); // store transposed wvp matrix in constant buffer
 	// copy our ConstantBuffer instance to the mapped constant buffer resource
 	memcpy(cbvGPUAddress[frameIndex] + ConstantBufferPerObjectAlignedSize, &cbPerObject, sizeof(cbPerObject));
 }
