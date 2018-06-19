@@ -47,7 +47,7 @@ DWORD dwCurrentTime = timeGetTime();
 
 
 // is window full screen?
-bool FullScreen = false;
+bool FullScreen = true;
 
 // we will exit the program when this becomes false
 bool Running = true;

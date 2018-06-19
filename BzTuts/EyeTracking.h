@@ -18,7 +18,7 @@
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 #define SERVER "127.0.0.1"  //ip address of udp server
-#define BUFLEN 512  //Max length of buffer
+#define BUFLEN 2048  //Max length of buffer
 #define PORT 6768   //The port on which to listen for incoming data
 
 using namespace DirectX; // we will be using the directxmath library
